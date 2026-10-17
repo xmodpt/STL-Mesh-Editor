@@ -33,46 +33,6 @@ start shows a warning:
   or *"is damaged"* → right-click the app → **Open**, or in Terminal:
   `xattr -cr "/Applications/STL Mesh Editor.app"`.
 
-**Building them:** the workflow `.github/workflows/desktop-apps.yml` builds
-all of them on GitHub's Windows, macOS and Linux machines. On GitHub:
-*Releases → Draft a new release* → *Choose a tag*: type e.g. `v1.1.0` (on the
-branch with this code) → *Publish release*. After about 10 minutes the files
-appear under the release's *Assets*. To build one yourself (Node.js 20+, on
-that system):
-
-```bash
-npm install
-npm run desktop:win      # Windows → desktop/release/
-npm run desktop:mac      # macOS (needs a Mac)
-npm run desktop:linux    # Linux
-npm run desktop          # just run the app
-```
-
-## Run
-
-```bash
-npm install
-npm run dev       # open the printed URL
-npm run build     # static build in dist/ (works from any folder / web host)
-npm test          # unit tests for the mesh logic
-npm start         # build + serve the optimized version (port 4173)
-```
-
-### Running on a Raspberry Pi / another machine
-
-After every `git pull`, run `npm install` before `npm start` – updates can add
-packages.
-
-The server listens on all network interfaces, so on the Pi it prints a
-`Network:` address next to `Local:`. Open that one (e.g.
-`http://192.168.1.50:5173`, or `http://raspberrypi.local:5173`) from the
-other computer – `localhost` only works on the Pi itself.
-
-- Use `npm start` for everyday use – it's much lighter on the Pi than `npm run dev`.
-- If the page still doesn't load, a firewall on the Pi may be blocking the port:
-  `sudo ufw allow 5173` (dev) / `sudo ufw allow 4173` (`npm start`).
-- To keep it running after you log out, use e.g. `pm2` or a systemd service
-  running `npm start` in this folder.
 
 ## Printer
 
