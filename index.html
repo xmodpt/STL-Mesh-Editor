@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STL Mesh Editor</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <!-- Splash screen: shown while the app starts -->
+    <div id="splash">
+      <div class="splash-box">
+        <svg class="logo" viewBox="0 0 24 24"><path class="t" d="M12 2 21 7 12 12 3 7z" /><path class="l" d="M3 7 12 12v10l-9-5z" /><path class="r" d="M21 7v10l-9 5V12z" /><path class="edge" d="M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10" /></svg>
+        <h1>STL Mesh Editor</h1>
+        <p class="splash-version">Version <span class="ver">1.1.0</span></p>
+        <p class="splash-tag">Open · repair · cut · export STL files</p>
+        <div class="splash-bar"><div></div></div>
+      </div>
+    </div>
+
+    <!-- About -->
+    <!-- Printer profiles -->
+    <div id="printer-modal" class="modal" hidden>
+      <div class="modal-box left printer-box">
+        <button class="modal-close" id="printer-close" title="Close">×</button>
+        <h2>Printer</h2>
+        <p class="muted">Pick your resin printer: its build plate is shown in the 3D view, and models that don't fit are flagged. Sizes are the makers' build volumes (width × depth × height, mm) – check yours, or add your own.</p>
+        <div id="printer-list" class="printer-list"></div>
+        <div class="sub-head">Add or edit your own</div>
+        <div class="printer-form">
+          <label class="field">Name <input id="pc-name" type="text" placeholder="My printer" /></label>
+          <label class="field">Width X <input id="pc-x" type="number" min="1" step="0.01" /> mm</label>
+          <label class="field">Depth Y <input id="pc-y" type="number" min="1" step="0.01" /> mm</label>
+          <label class="field">Height Z <input id="pc-z" type="number" min="1" step="0.01" /> mm</label>
+          <div class="row">
+            <button id="pc-save" class="primary">Save as my printer</button>
+            <button id="pc-delete" hidden>Delete</button>
+          </div>
+          <p id="pc-status" class="muted"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="about" class="modal" hidden>
+      <div class="modal-box">
+        <button class="modal-close" id="about-close" title="Close">×</button>
+        <svg class="logo" viewBox="0 0 24 24"><path class="t" d="M12 2 21 7 12 12 3 7z" /><path class="l" d="M3 7 12 12v10l-9-5z" /><path class="r" d="M21 7v10l-9 5V12z" /><path class="edge" d="M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10" /></svg>
+        <h2>STL Mesh Editor</h2>
+        <p class="about-version">Version <span class="ver">1.1.0</span></p>
+        <p>Open STL files, repair them and get them ready to print – in the browser or as a Windows app.</p>
+        <ul class="about-list">
+          <li><b>Normal mode</b> – move, rotate, resize, lay flat and export whole models</li>
+          <li><b>Edit mode</b> – select, delete and split parts, close holes, group and ungroup</li>
+          <li><b>Cut mode</b> – plane cuts with pins, holes or dowels, chosen automatically or placed by hand</li>
+          <li><b>Fix model</b> – find floating parts and holes and fix them in one click</li>
+        </ul>
+        <p class="muted">Press <kbd>?</kbd> for all keyboard shortcuts. Built with Three.js. Everything runs on your computer – your models are never uploaded.</p>
+      </div>
+    </div>
+
+    <!-- Top bar: file, export, undo/redo, menus -->
+    <header id="topbar">
+      <div class="brand" id="brand" title="About STL Mesh Editor" role="button" tabindex="0"><svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7z" /><path d="M3 7l9 5 9-5M12 12v10" /></svg>STL Mesh Editor <span id="app-version" class="version"></span></div>
+
+      <div class="tb-group">
+        <label class="tb-btn" for="file-input" title="Open an STL, 3MF or OBJ file (or drop one anywhere)">
+          <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>Open
+        </label>
+        <input id="file-input" type="file" accept=".stl,.3mf,.obj" hidden />
+        <button class="tb-btn" id="sample" title="Load a sample model (cake with candles)">
+          <svg viewBox="0 0 24 24"><path d="M4 11h16v9H4zM8 11V6M12 11V4M16 11V6" /></svg>Sample
+        </button>
+        <div class="menu">
+          <button class="tb-btn" data-menu title="Export STL files">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 19h16" /></svg>Export<span class="caret">▾</span>
+          </button>
+          <div class="menu-panel">
+            <label class="check"><input id="export-selected" type="checkbox" /> Only the selected model(s)</label>
+            <button id="export" disabled>Export whole model</button>
+            <button id="export-zip" disabled>Download all parts (.zip)</button>
+            <button id="export-each" disabled>Download each part as its own STL</button>
+            <button id="export-3mf" disabled title="One 3MF file with every model kept separate – for Bambu Studio, PrusaSlicer, Orca, Chitubox, Lychee">Save as 3MF</button>
+            <button id="export-obj" disabled>Save as OBJ</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tb-group">
+        <button class="tb-btn icon" id="undo" title="Undo (Ctrl+Z)" disabled><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg></button>
+        <button class="tb-btn icon" id="redo" title="Redo (Ctrl+Y)" disabled><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg></button>
+      </div>
+
+      <div class="mode-switch" role="tablist" title="Tab switches Normal ↔ Edit">
+        <button data-appmode="normal" title="Normal (1) – move, rotate, resize and export whole models">Normal</button>
+        <button data-appmode="edit" title="Edit (2 / Tab) – the model's parts: select, delete, split, close holes, group">Edit</button>
+        <button data-appmode="cut" title="Cut (3) – plane cut with pins, holes or dowels">Cut</button>
+      </div>
+
+      <div id="file-name" class="file-name">No file loaded</div>
+
+      <div class="tb-group right">
+        <div class="menu">
+          <button class="tb-btn" data-menu title="Check, repair and change the model">
+            <svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z" /></svg>Tools<span class="caret">▾</span>
+          </button>
+          <div class="menu-panel tools-menu">
+            <p class="menu-title">Check</p>
+            <button data-panel="info">Model info – volume, resin, cost</button>
+            <button data-panel="repair">Repair</button>
+            <button data-panel="thickness">Wall thickness</button>
+            <button data-panel="overhang">Overhangs &amp; auto-orient</button>
+            <button data-panel="measure">Measure</button>
+            <p class="menu-title">Change</p>
+            <button data-panel="hollow">Hollow &amp; drain holes</button>
+            <button data-panel="text">Text / logo</button>
+            <button data-panel="base">Add a base</button>
+            <button data-panel="combine">Combine models</button>
+            <button data-panel="mirror">Mirror</button>
+            <button data-panel="smooth">Smooth</button>
+          </div>
+        </div>
+        <button class="tb-btn" id="printer-open" title="Choose your printer – its build plate is shown and the model checked against it">
+          <svg viewBox="0 0 24 24"><path d="M5 20h14M7 20V9h10v11M9 9V4h6v5M4 9h16" /></svg><span id="printer-name">No printer</span>
+        </button>
+          <button class="tb-btn" data-menu title="View options">
+            <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>View<span class="caret">▾</span>
+          </button>
+          <div class="menu-panel">
+            <div class="views">
+              <button data-view="iso">Iso</button>
+              <button data-view="top">Top</button>
+              <button data-view="front">Front</button>
+              <button data-view="right">Right</button>
+              <button data-view="left">Left</button>
+              <button data-view="back">Back</button>
+              <button data-view="bottom">Bottom</button>
+              <button id="frame" title="F">Frame</button>
+              <button id="frame-plate" title="The whole printer and its build plate">Plate</button>
+            </div>
+            <label class="field">Camera <select id="projection"><option value="perspective">Perspective</option><option value="orthographic">Orthographic</option></select></label>
+            <label class="field">Rotate <select id="rotate-mode"><option value="free">Free (all directions)</option><option value="turntable">Turntable (Z up)</option></select></label>
+            <label class="check"><input id="show-boundary" type="checkbox" checked /> Highlight hole edges</label>
+            <label class="check"><input id="show-wire" type="checkbox" /> Wireframe</label>
+            <label class="check"><input id="obj-colors" type="checkbox" checked /> Colour by object</label>
+          </div>
+        </div>
+        <div class="menu">
+          <button class="tb-btn icon" data-menu title="Settings">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+          </button>
+          <div class="menu-panel">
+            <label class="check"><input id="auto-place" type="checkbox" checked /> Place on plate when opening</label>
+            <label class="check"><input id="split-close" type="checkbox" checked /> Close cut faces when splitting</label>
+            <label class="check"><input id="close-on-exit" type="checkbox" checked /> Close holes when leaving Edit mode</label>
+            <button id="about-open" class="menu-link">About STL Mesh Editor…</button>
+            <label class="field" title="Lower = split the model into more, smaller sub-objects">Split objects at creases over <input id="obj-angle" type="range" min="5" max="60" value="20" /> <span id="obj-angle-val">20°</span></label>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div id="app">
+      <main id="view">
+        <!-- Tool rail (left) -->
+        <nav id="toolrail">
+          <button data-tool="pick" data-modes="normal" title="Select models (O) – click a model, Shift adds, Ctrl removes">
+            <svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-3 6z" /></svg><span class="key">O</span>
+          </button>
+          <button data-rail="select" data-modes="edit" title="Select (O) – object, triangle, brush, box, part, region">
+            <svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-3 6z" /></svg><span class="key">O</span>
+          </button>
+          <button data-tool="block" data-modes="edit" title="Block cut-select (K)">
+            <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2" /><path d="M9 4v16" /></svg><span class="key">K</span>
+          </button>
+          <span class="sep" data-modes="normal"></span>
+          <button data-tool="move" data-modes="normal" title="Move (M)">
+            <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3" /></svg><span class="key">M</span>
+          </button>
+          <button data-tool="rotate" data-modes="normal" title="Rotate on the plate (R)">
+            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 3v6h-6" /></svg><span class="key">R</span>
+          </button>
+          <button data-tool="scale" data-modes="normal" title="Resize (Z)">
+            <svg viewBox="0 0 24 24"><path d="M4 20 20 4M14 4h6v6M4 14v6h6" /></svg><span class="key">Z</span>
+          </button>
+          <button data-tool="layflat" data-modes="normal" title="Lay flat on a face (L)">
+            <svg viewBox="0 0 24 24"><path d="M12 3v11M8 10l4 4 4-4M3 20h18M6 17h12" /></svg><span class="key">L</span>
+          </button>
+          <button data-tool="cut" data-modes="cut" title="Plane cut with connector pins (C)">
+            <svg viewBox="0 0 24 24"><path d="M3 14h18" stroke-dasharray="3 2" /><path d="M6 4h12v6H6zM6 18h12v3H6z" /></svg><span class="key">C</span>
+          </button>
+          <span class="sep" data-modes="normal edit"></span>
+          <button data-action="split" id="split" data-modes="edit" disabled title="Split the selection into its own part (S)">
+            <svg viewBox="0 0 24 24"><path d="M4 4h7v16H4zM14 4h6v16h-6" /></svg><span class="key">S</span>
+          </button>
+          <button data-action="fix" id="fix-open" data-modes="normal edit" title="Fix model – floating parts, holes, solid check (W)">
+            <svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z" /></svg><span class="key">W</span>
+          </button>
+          <button data-action="holes" data-modes="edit" title="Close holes (H)">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M8 12h8M12 8v8" /></svg><span class="key">H</span>
+          </button>
+          <button data-action="delete" id="delete" data-modes="normal edit" class="danger" disabled title="Delete the selection (Del)">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+          </button>
+          <button data-action="group" id="group" data-modes="edit" title="Group the selected parts into one model (Ctrl+G)">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1" /><rect x="13" y="13" width="8" height="8" rx="1" /><path d="M11 7h4a2 2 0 0 1 2 2v4" /></svg>
+          </button>
+          <button data-action="ungroup" id="ungroup" data-modes="edit" title="Ungroup: make the selected parts separate models (Ctrl+Shift+G)">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1" /><rect x="13" y="13" width="8" height="8" rx="1" stroke-dasharray="2 2" /></svg>
+          </button>
+          <span class="sep"></span>
+          <button data-tool="orbit" title="View / orbit with the left mouse button (V)">
+            <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="4" /><circle cx="12" cy="12" r="2" /></svg><span class="key">V</span>
+          </button>
+        </nav>
+
+        <!-- Options of the active tool -->
+        <div id="tool-card" class="card">
+          <div class="card-head"><span id="card-title"></span><button id="card-close" title="Close">×</button></div>
+
+          <div class="card-body" data-card="pick">
+            <p class="hint">Click a model to select it (Shift adds, Ctrl removes), then move, rotate, resize, lay it flat or export it. Nothing selected = everything.</p>
+            <div class="row">
+              <button id="pick-all" title="Ctrl+A">All</button>
+              <button id="pick-none" title="Esc">None</button>
+            </div>
+            <p class="hint">To change the model itself – delete or split parts, close holes, group or ungroup – switch to <b>Edit</b> (Tab). Leaving Edit makes the parts solid models again.</p>
+          </div>
+
+          <div class="card-body" data-card="select">
+            <div class="seg" id="select-modes">
+              <button data-tool="object" title="Hover to preview, click to select a whole object (O)">Object</button>
+              <button data-tool="click" title="Click triangles (T)">Triangle</button>
+              <button data-tool="brush" title="Paint over visible triangles (B)">Brush</button>
+              <button data-tool="box" title="Drag a rectangle (X)">Box</button>
+              <button data-tool="part" title="Click a connected part (P)">Part</button>
+              <button data-tool="region" title="Click a smooth/flat region (G)">Region</button>
+            </div>
+            <label class="field" data-mode="brush">Brush size <input id="brush-size" type="range" min="4" max="120" value="30" /></label>
+            <label class="field" data-mode="region">Max angle <input id="region-angle" type="range" min="1" max="90" value="20" /> <span id="region-angle-val">20°</span></label>
+            <label class="check" data-mode="box"><input id="box-through" type="checkbox" /> Select through (include hidden faces)</label>
+            <div class="row">
+              <button id="sel-all" title="Ctrl+A">All</button>
+              <button id="sel-none" title="Esc">None</button>
+              <button id="sel-invert" title="Ctrl+I">Invert</button>
+              <button id="sel-grow" title="+">Grow</button>
+              <button id="sel-shrink" title="−">Shrink</button>
+            </div>
+            <p class="hint">Shift adds, Ctrl removes. Drag on empty space to rotate the view. Group the selected parts into one model with Ctrl+G, ungroup with Ctrl+Shift+G.</p>
+          </div>
+
+          <div class="card-body" data-card="block">
+            <p class="hint">Drag a rectangle over the model: it is cut cleanly along the rectangle's edges, all the way through, and the block inside is selected. Use a straight view (View ▾ → Top, Orthographic) for exact cuts, then <b>Split</b> it into its own part.</p>
+          </div>
+
+          <div class="card-body" data-card="move">
+            <div id="joystick">
+              <div class="pads">
+                <div class="pad">
+                  <button data-move="0,1,0" class="n" title="Move +Y">Y+</button>
+                  <button data-move="-1,0,0" class="w" title="Move −X">X−</button>
+                  <button id="move-center" class="c" title="Centre on the plate (Home)">⌂</button>
+                  <button data-move="1,0,0" class="e" title="Move +X">X+</button>
+                  <button data-move="0,-1,0" class="s" title="Move −Y">Y−</button>
+                </div>
+                <div class="zcol">
+                  <button data-move="0,0,1" title="Move up (PgUp)">Z+</button>
+                  <button id="move-drop" title="Drop onto the plate">⤓</button>
+                  <button data-move="0,0,-1" title="Move down (PgDn)">Z−</button>
+                </div>
+              </div>
+              <div class="steps">Step <button data-step="0.1">0.1</button><button data-step="1" class="active">1</button><button data-step="10">10</button> mm</div>
+            </div>
+            <p class="hint">Or drag a part in the view: Shift = up/down, Ctrl = snap. Arrow keys move too.</p>
+          </div>
+
+          <div class="card-body" data-card="rotate">
+            <div class="rotate-row">
+              <button data-rotate="0,0,1,1" title="Turn left (Q)">⟲</button>
+              <button data-rotate="0,0,1,-1" title="Turn right (E)">⟳</button>
+              <span class="angles"><button data-angle="5">5</button><button data-angle="15" class="active">15</button><button data-angle="45">45</button><button data-angle="90">90</button>°</span>
+            </div>
+            <div class="row">
+              <button data-rotate="1,0,0,1" title="Tip 90° around X">Tip X 90°</button>
+              <button data-rotate="0,1,0,1" title="Tip 90° around Y">Tip Y 90°</button>
+            </div>
+            <p class="hint">Drag on the model to spin it on the plate (Shift snaps to 15°).</p>
+          </div>
+
+          <div class="card-body" data-card="scale">
+            <p class="hint" id="scale-target"></p>
+            <div class="size-grid">
+              <label><span class="ax x">X</span><input id="scale-x" type="text" inputmode="decimal" autocomplete="off" /> mm</label>
+              <label><span class="ax y">Y</span><input id="scale-y" type="text" inputmode="decimal" autocomplete="off" /> mm</label>
+              <label><span class="ax z">Z</span><input id="scale-z" type="text" inputmode="decimal" autocomplete="off" /> mm</label>
+            </div>
+            <label class="field">Scale <input id="scale-pct" type="text" inputmode="decimal" autocomplete="off" value="100" /> <span id="scale-pct-of">%</span></label>
+            <label class="check"><input id="scale-lock" type="checkbox" checked /> Keep proportions</label>
+            <div class="row">
+              <button data-scale="0.5" title="Half size">50%</button>
+              <button data-scale="2" title="Double size">200%</button>
+              <button data-scale="10" title="Ten times bigger">1000%</button>
+              <button data-scale="25.4" title="The file was made in inches and loaded tiny">inch → mm</button>
+              <button data-scale="0.0393701" title="The file was made in mm but read as inches">mm → inch</button>
+            </div>
+            <button id="scale-apply" class="primary">Apply size</button>
+            <p class="hint">Resizes around the bottom centre, so it stays on the plate. With separate parts selected, only they change.</p>
+          </div>
+
+          <div class="card-body" data-card="layflat">
+            <p class="hint">Click a face: the model turns so that face lies on the plate. To turn only some parts, select them first.</p>
+            <button id="lay-flat" hidden></button>
+          </div>
+
+          <div class="card-body" data-card="cut">
+            <ol class="guide" id="cut-guide">
+              <li data-step="1"><b>Place the plane</b> – drag the orb (arrow slides, rings tilt), pick an axis, or click the model.</li>
+              <li data-step="2"><b>Check the connectors</b> – the list below and the preview on the plane show what each cut area gets.</li>
+              <li data-step="3"><b>Cut</b> – then arrange the halves for printing and export.</li>
+            </ol>
+            <div class="seg cut-planes">
+              <button data-plane="x" title="Cut across X">X</button><button data-plane="y" title="Cut across Y">Y</button><button data-plane="z" class="active" title="Horizontal cut">Z</button><button data-plane="face" title="Parallel to a face you click">Face</button>
+            </div>
+            <label class="field">Position <input id="cut-pos" type="range" step="any" /> <input id="cut-pos-num" type="number" step="0.1" /></label>
+
+            <div class="sub-head">Connectors</div>
+            <label class="field">Type <select id="cut-type">
+              <option value="auto">Auto (recommended)</option>
+              <option value="pin">Pin &amp; hole</option>
+              <option value="dowel">Dowels (separate pins)</option>
+              <option value="none">None – glue only</option>
+            </select></label>
+            <label class="field">Placement <select id="cut-place">
+              <option value="auto">Automatic</option>
+              <option value="manual">Manual – click on the cut</option>
+            </select></label>
+            <div id="cut-manual" class="manual-box" hidden>
+              <p class="hint">Click on the plane where a connector should go – each one is checked right away (green fits, red doesn't, with the reason). Ctrl+click removes the nearest; Shift+click moves the plane instead.</p>
+              <button id="cut-clear">Remove all</button>
+            </div>
+            <label class="field" id="cut-pins-row">Per cut area <select id="cut-pins"><option value="auto">Auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+            <label class="field">Ø <input id="cut-dia" type="number" min="0" step="0.5" value="0" title="0 = automatic" /> Length <input id="cut-len" type="number" min="0" step="0.5" value="0" title="0 = automatic" /></label>
+            <label class="field" title="How much wider each hole is than its pin (on the diameter). 0.2 mm suits most FDM printers; raise it if the fit is too tight.">Hole wider by <input id="cut-tol" type="number" min="0" step="0.05" value="0.2" /> mm</label>
+            <div id="cut-analysis" class="analysis"></div>
+
+            <div class="row">
+              <button id="cut-reset" title="Back to a flat Z cut">Reset</button>
+              <button id="cut-flip" title="Swap which half gets the pins">Flip</button>
+              <button id="cut-go" class="primary" title="Enter">Cut</button>
+            </div>
+
+            <div id="cut-done" class="done" hidden>
+              <p id="cut-done-text"></p>
+              <div class="row">
+                <button id="cut-apart" title="Move the halves apart along the cut so the pins and holes can be seen">Pull apart</button>
+                <button id="cut-arrange" class="primary" title="Lay each half on its best face and place them side by side">Arrange for printing</button>
+                <button id="cut-export" title="Download every part as STL in a ZIP">Download parts</button>
+              </div>
+              <ul id="cut-tips" class="tips"></ul>
+            </div>
+          </div>
+
+          <div class="card-body" data-card="holes">
+            <label class="check"><input id="limit-holes" type="checkbox" /> Only holes up to <input id="max-edges" type="number" min="3" value="100" /> edges</label>
+            <button id="fill" class="primary" disabled title="H">Close holes</button>
+            <p class="hint">Holes are outlined in red on the model.</p>
+          </div>
+
+          <div class="card-body" data-card="fix">
+            <p class="hint">Checks the model for problems that spoil a print and fixes them.</p>
+            <div id="fix-report" class="fix-report"></div>
+            <div class="row">
+              <button id="fix-check" title="Run the checks again">Check again</button>
+              <button id="fix-all" class="primary" title="Delete floating parts and close all holes">Fix everything</button>
+            </div>
+          </div>
+
+          <div class="card-body" data-card="info">
+            <dl id="info-list" class="info-list"></dl>
+            <div class="sub-head">Resin</div>
+            <label class="field" title="Most standard resins weigh 1.05–1.25 g/ml – see the bottle">Density <input id="info-density" type="number" min="0.5" max="3" step="0.01" value="1.10" /> g/ml</label>
+            <label class="field">Price <input id="info-price" type="number" min="0" step="0.5" value="30" /> per kg</label>
+            <p id="info-note" class="hint"></p>
+          </div>
+
+          <div class="card-body" data-card="overhang">
+            <p class="hint">Red faces point down more steeply than the angle and need supports.</p>
+            <label class="field">Angle <input id="oh-angle" type="range" min="20" max="70" value="45" /> <span id="oh-angle-val">45°</span></label>
+            <p id="oh-info" class="hint"></p>
+            <button id="oh-orient" class="primary" title="Turn the model (or the selected models) so that the least area overhangs">Auto-orient – fewest supports</button>
+            <p id="oh-result" class="hint"></p>
+          </div>
+
+          <div class="card-body" data-card="thickness">
+            <p class="hint">Measured from each face straight into the model. <span class="sw red"></span> thinner than the minimum · <span class="sw orange"></span> close to it · <span class="sw green"></span> fine.</p>
+            <label class="field" title="Resin: about 0.8–1 mm for small details, 1.5–2 mm for walls of hollowed models">Minimum <input id="th-min" type="number" min="0.1" step="0.1" value="1.0" /> mm</label>
+            <p id="th-info" class="hint"></p>
+            <button id="th-select" title="Select the faces thinner than the minimum (Edit mode)">Select the thin areas</button>
+          </div>
+
+          <div class="card-body" data-card="repair">
+            <p class="hint">Looks for faces turned the wrong way, duplicate and zero-size triangles, paper-thin double walls and places where the surface passes through itself.</p>
+            <div id="repair-report" class="fix-report"></div>
+            <div class="row">
+              <button id="repair-run" class="primary">Repair</button>
+              <button id="repair-select" title="Select the faces that pass through other faces (Edit mode)">Select crossings</button>
+            </div>
+            <p class="hint">Holes and floating parts: Fix model (W).</p>
+          </div>
+
+          <div class="card-body" data-card="measure">
+            <p class="hint">Click two points on the model for the distance; a third gives the angle at the middle point. A fourth click starts again.</p>
+            <dl id="measure-out" class="info-list"></dl>
+            <button id="measure-clear">Clear</button>
+          </div>
+
+          <div class="card-body" data-card="mirror">
+            <p class="hint">Flips the selected models (or everything) across its centre.</p>
+            <div class="row">
+              <button data-mirror="0">Mirror X (left ↔ right)</button>
+              <button data-mirror="1">Mirror Y (front ↔ back)</button>
+            </div>
+            <button data-mirror="2">Mirror Z (upside down)</button>
+          </div>
+
+          <div class="card-body" data-card="smooth">
+            <p class="hint">Softens a rough or noisy surface (scans). In Edit mode only the selected faces are smoothed and the edge of the area stays put; otherwise the selected models, or everything.</p>
+            <label class="field">Strength <input id="sm-strength" type="range" min="10" max="90" value="50" /> <span id="sm-strength-val">50%</span></label>
+            <label class="field">Passes <input id="sm-passes" type="number" min="1" max="50" value="5" /></label>
+            <button id="sm-run" class="primary">Smooth</button>
+          </div>
+
+          <div class="card-body" data-card="combine">
+            <p class="hint">Select two or more models (Shift-click), then:</p>
+            <p id="cb-info" class="hint"></p>
+            <button id="cb-join" class="primary" title="One solid made of all of them – overlaps merge cleanly">Join into one</button>
+            <label class="field">Cut the others out of <select id="cb-keep"></select></label>
+            <button id="cb-cut" title="Cut the shape of the other models out of this one (holes, slots, sockets)">Cut</button>
+            <button id="cb-overlap" title="Keep only where they all overlap">Keep only the overlap</button>
+          </div>
+
+          <div class="card-body" data-card="base">
+            <p class="hint">A plinth under the selected models (or everything), set onto it.</p>
+            <label class="field">Shape <select id="bs-shape"><option value="round">Round</option><option value="oval">Oval</option><option value="square">Rectangle</option></select></label>
+            <label class="field">Margin <input id="bs-margin" type="number" min="0" step="0.5" value="4" /> mm</label>
+            <label class="field">Height <input id="bs-height" type="number" min="0.6" step="0.5" value="3" /> mm</label>
+            <label class="field">Bevel <input id="bs-bevel" type="number" min="0" step="0.1" value="0.8" /> mm</label>
+            <label class="check"><input id="bs-join" type="checkbox" checked /> Join the model to the base (one piece)</label>
+            <button id="bs-add" class="primary">Add base</button>
+          </div>
+
+          <div class="card-body" data-card="text">
+            <label class="field">Text <input id="tx-text" type="text" value="Hello" /></label>
+            <label class="field">Font <select id="tx-font">
+              <option value="helvetiker_bold">Helvetiker bold</option>
+              <option value="helvetiker_regular">Helvetiker</option>
+              <option value="optimer_bold">Optimer bold</option>
+              <option value="gentilis_bold">Gentilis bold</option>
+            </select></label>
+            <label class="field">…or a logo <input id="tx-svg" type="file" accept=".svg,image/svg+xml" /></label>
+            <p id="tx-logo" class="hint" hidden></p>
+            <label class="field"><span id="tx-size-label">Letter height</span> <input id="tx-size" type="number" min="1" step="0.5" value="6" /> mm</label>
+            <label class="field">Depth <input id="tx-depth" type="number" min="0.2" step="0.1" value="1" /> mm</label>
+            <label class="field">Turn <input id="tx-angle" type="number" step="5" value="0" /> °</label>
+            <div class="seg"><button data-txmode="raise" class="active">Raised</button><button data-txmode="engrave">Engraved</button></div>
+            <p id="tx-hint" class="hint">Click on the model where it should go.</p>
+            <button id="tx-apply" class="primary" disabled>Add it</button>
+          </div>
+
+          <div class="card-body" data-card="hollow">
+            <p class="hint">Resin: a hollow model uses far less resin. Hollow it, then add drain holes near the bottom so resin can run out and air can get in (two holes are best).</p>
+            <label class="field">Wall <input id="hl-wall" type="number" min="0.8" step="0.1" value="2" /> mm</label>
+            <button id="hl-run" class="primary">Hollow the selected models (or everything)</button>
+            <p id="hl-info" class="hint"></p>
+            <div class="sub-head">Drain holes</div>
+            <label class="field">Diameter <input id="hl-dia" type="number" min="0.5" step="0.5" value="3" /> mm</label>
+            <p id="hl-holes" class="hint">Click on the model where each hole goes.</p>
+            <div class="row">
+              <button id="hl-drill" class="primary" disabled>Drill holes</button>
+              <button id="hl-clear" disabled>Clear</button>
+            </div>
+          </div>
+
+          <div class="card-body" data-card="orbit">
+            <p class="hint">Left-drag rotates the view, right-drag pans, wheel zooms.</p>
+          </div>
+        </div>
+
+        <div id="drop-hint">Open or drop an STL file to start</div>
+        <div id="brush-cursor"></div>
+        <div id="box-rect"></div>
+        <div id="busy">
+          <span id="busy-label">Working…</span>
+          <div id="busy-bar" hidden><div id="busy-fill"></div><span id="busy-pct">0%</span></div>
+        </div>
+        <div id="angle-readout" hidden></div>
+        <div id="toast"></div>
+        <div id="fatal" hidden>
+          <strong>Something went wrong</strong>
+          <div class="msgs"></div>
+          <button onclick="this.parentNode.hidden = true">Close</button>
+        </div>
+
+        <button id="help-open" title="Keyboard shortcuts (?)">?</button>
+        <div id="help" hidden>
+          <div class="help-head">
+            <h3>Shortcuts</h3>
+            <button id="help-close" title="Close">×</button>
+          </div>
+          <div class="help-body">
+            <h4>Modes</h4>
+            <ul class="keys">
+              <li><kbd>1</kbd> = Normal (move, resize, export)</li>
+              <li><kbd>2</kbd> = Edit (parts)</li>
+              <li><kbd>3</kbd> = Cut</li>
+              <li><kbd>Tab</kbd> = Normal ↔ Edit</li>
+            </ul>
+            <h4>Tools</h4>
+            <ul class="keys">
+              <li><kbd>O</kbd> = Select model / object</li>
+              <li><kbd>T</kbd> = Triangle select</li>
+              <li><kbd>B</kbd> = Brush select</li>
+              <li><kbd>X</kbd> = Box select</li>
+              <li><kbd>P</kbd> = Part select</li>
+              <li><kbd>G</kbd> = Region select</li>
+              <li><kbd>K</kbd> = Block cut &amp; select</li>
+              <li><kbd>M</kbd> = Move</li>
+              <li><kbd>R</kbd> = Rotate on plate</li>
+              <li><kbd>Z</kbd> = Resize</li>
+              <li><kbd>L</kbd> = Lay flat</li>
+              <li><kbd>C</kbd> = Cut / plane cut</li>
+              <li><kbd>Enter</kbd> = Do the cut</li>
+              <li><kbd>V</kbd> = View / orbit</li>
+            </ul>
+            <h4>Edit</h4>
+            <ul class="keys">
+              <li><kbd>Del</kbd> = Delete selection</li>
+              <li><kbd>S</kbd> = Split into part</li>
+              <li><kbd>H</kbd> = Close holes</li>
+              <li><kbd>W</kbd> = Fix model</li>
+              <li><kbd>Ctrl+G</kbd> = Group parts</li>
+              <li><kbd>Ctrl+Shift+G</kbd> = Ungroup</li>
+              <li><kbd>Ctrl+Z</kbd> = Undo</li>
+              <li><kbd>Ctrl+Y</kbd> = Redo</li>
+            </ul>
+            <h4>Selection</h4>
+            <ul class="keys">
+              <li><kbd>Ctrl+A</kbd> = Select all</li>
+              <li><kbd>Ctrl+I</kbd> = Invert</li>
+              <li><kbd>Esc</kbd> = Select none</li>
+              <li><kbd>+</kbd> / <kbd>−</kbd> = Grow / shrink</li>
+              <li><kbd>Shift</kbd>+click = Add</li>
+              <li><kbd>Ctrl</kbd>+click = Remove</li>
+            </ul>
+            <h4>Move &amp; rotate</h4>
+            <ul class="keys">
+              <li><kbd>← → ↑ ↓</kbd> = Move on plate</li>
+              <li><kbd>PgUp</kbd> / <kbd>PgDn</kbd> = Up / down</li>
+              <li><kbd>Shift</kbd>+move = 10× step</li>
+              <li><kbd>Home</kbd> = Centre on plate</li>
+              <li><kbd>Q</kbd> / <kbd>E</kbd> = Turn left / right</li>
+            </ul>
+            <h4>View</h4>
+            <ul class="keys">
+              <li><kbd>F</kbd> = Frame model</li>
+              <li>Left-drag (empty space) = Turn around (left/right only)</li>
+              <li>Right-drag = Rotate freely</li>
+              <li>Middle-drag = Pan</li>
+              <li>Wheel = Zoom</li>
+              <li>Double-click = Rotation centre</li>
+              <li><kbd>?</kbd> = Show / hide this box</li>
+            </ul>
+          </div>
+        </div>
+      </main>
+
+      <!-- Right sidebar: objects and model info -->
+      <aside id="sidebar">
+        <section class="side-section grow">
+          <div class="side-head">Objects</div>
+          <div id="floating-warning" class="warning" hidden>
+            <p id="floating-text"></p>
+            <div class="row">
+              <button id="floating-select">Select</button>
+              <button id="floating-delete" class="danger">Delete</button>
+              <button id="floating-fix" title="Open Fix model">Fix…</button>
+              <button id="floating-dismiss" title="Hide this warning">Ignore</button>
+            </div>
+          </div>
+          <ul id="object-list" class="tree"></ul>
+          <button id="show-all" hidden>Show everything</button>
+        </section>
+        <section class="side-section">
+          <div class="side-head">Model</div>
+          <dl id="stats"></dl>
+        </section>
+      </aside>
+    </div>
+
+    <footer id="statusbar">
+      <span id="view-mode" class="mode-chip">Normal</span>
+      <span id="status-hint"></span>
+      <span class="spacer"></span>
+      <span id="fit-chip" class="fit-chip" hidden></span>
+      <span id="placement"></span>
+      <span class="sep"></span>
+      <span>Selected <b id="sel-count">0</b></span>
+    </footer>
+
+    <script>
+      // Shows errors that would otherwise fail silently: the app's code not
+      // loading (e.g. a stale cached page after an update), a startup crash,
+      // or no WebGL 2 in this browser.
+      (function () {
+        function show(msg) {
+          var box = document.getElementById('fatal');
+          box.hidden = false;
+          var p = document.createElement('p');
+          p.textContent = msg;
+          box.querySelector('.msgs').appendChild(p);
+        }
+        window.__showFatal = show;
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e.target;
+            if (t && t !== window && (t.src || t.href)) show('Could not load ' + (t.src || t.href) + ' – reload the page with Ctrl+Shift+R.');
+            else if (e.message) show(e.message);
+          },
+          true,
+        );
+        window.addEventListener('unhandledrejection', function (e) {
+          show(String((e.reason && e.reason.message) || e.reason));
+        });
+        setTimeout(function () {
+          if (!window.__appStarted) show('The app did not start. Reload the page with Ctrl+Shift+R; if this stays, send the messages above.');
+        }, 6000);
+      })();
+    </script>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

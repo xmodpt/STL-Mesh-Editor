@@ -1,0 +1,26 @@
+{
+  "name": "stl-mesh-editor",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Browser app to open STL files, delete parts of the mesh and close the resulting holes.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite build && vite preview",
+    "test": "node --test test/*.test.js",
+    "desktop": "vite build && cd desktop && npm install && npm start",
+    "desktop:win": "vite build && cd desktop && npm install && npm run dist:win",
+    "desktop:mac": "vite build && cd desktop && npm install && npm run dist:mac",
+    "desktop:linux": "vite build && cd desktop && npm install && npm run dist:linux"
+  },
+  "dependencies": {
+    "manifold-3d": "^3.5.4",
+    "three": "^0.170.0",
+    "three-mesh-bvh": "^0.9.15"
+  },
+  "devDependencies": {
+    "vite": "^6.4.4"
+  }
+}

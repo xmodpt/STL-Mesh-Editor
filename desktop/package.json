@@ -1,0 +1,109 @@
+{
+  "name": "stl-mesh-editor-desktop",
+  "productName": "STL Mesh Editor",
+  "version": "1.1.0",
+  "private": true,
+  "description": "STL Mesh Editor – open, repair, cut and export STL files",
+  "main": "main.cjs",
+  "scripts": {
+    "prepare-app": "node prepare.mjs",
+    "start": "node prepare.mjs && electron .",
+    "dist": "node prepare.mjs && electron-builder --win portable --x64 --publish never",
+    "dist:win": "node prepare.mjs && electron-builder --win nsis portable --x64 --publish never",
+    "dist:mac": "node prepare.mjs && electron-builder --mac dmg --universal --publish never",
+    "dist:linux": "node prepare.mjs && electron-builder --linux AppImage deb --x64 --arm64 --publish never",
+    "dist:linux-host": "node prepare.mjs && electron-builder --win portable --x64 --publish never -c.win.signAndEditExecutable=false"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "app.stlmesheditor.desktop",
+    "productName": "STL Mesh Editor",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "icon.png",
+      "app/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "icon.png",
+      "signAndEditExecutable": true
+    },
+    "portable": {
+      "artifactName": "STL-Mesh-Editor-${version}-portable.exe"
+    },
+    "compression": "normal",
+    "fileAssociations": [
+      {
+        "ext": "stl",
+        "name": "STL model",
+        "description": "3D model (STL)",
+        "role": "Editor"
+      },
+      {
+        "ext": "3mf",
+        "name": "3MF model",
+        "description": "3D model (3MF)",
+        "role": "Editor"
+      },
+      {
+        "ext": "obj",
+        "name": "OBJ model",
+        "description": "3D model (OBJ)",
+        "role": "Editor"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "STL Mesh Editor",
+      "artifactName": "STL-Mesh-Editor-${version}-setup.exe"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "icon.png",
+      "category": "public.app-category.graphics-design",
+      "identity": null,
+      "artifactName": "STL-Mesh-Editor-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "STL Mesh Editor ${version}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "icon.png",
+      "category": "Graphics",
+      "synopsis": "Open, repair, cut and export STL files",
+      "executableName": "stl-mesh-editor",
+      "artifactName": "STL-Mesh-Editor-${version}-linux-${arch}.${ext}",
+      "syncDesktopName": true
+    },
+    "deb": {
+      "artifactName": "stl-mesh-editor_${version}_${arch}.${ext}"
+    }
+  },
+  "author": {
+    "name": "xmodpt",
+    "email": "xmodpt@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/xmodpt/slicer",
+  "repository": "https://github.com/xmodpt/slicer",
+  "desktopName": "stl-mesh-editor.desktop"
+}
