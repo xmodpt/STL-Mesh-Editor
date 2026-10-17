@@ -3,9 +3,9 @@
 A browser app to open STL files, delete parts of the mesh, and close the model
 again so it's watertight.
 
-**Version 1.1.0**
+**Version 1.0.1**
 
-What's new in 1.1:
+What's new in 1.0.1:
 - Mouse: left-drag turns the model around (left/right only, like a
   turntable); right-drag rotates freely.
 - The AI features were removed – the app works fully offline and never
